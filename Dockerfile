@@ -38,5 +38,5 @@ LABEL org.opencontainers.image.base.name="scratch"
 
 USER exporter
 
-COPY --from=builder /go/src/github.com/4data-ch/openldap_exporter/target/openldap_exporter /usr/bin/openldap_exporter
+COPY --from=builder /go/bin/openldap_exporter /usr/bin/openldap_exporter
 ENTRYPOINT ["/usr/bin/openldap_exporter"]
