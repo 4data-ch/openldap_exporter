@@ -278,7 +278,7 @@ func (s *Scraper) scrape() {
 				return
 			}
 		default:
-			s.log.WithError(err).Error("Invalid settings for ssl: %s", s.TLS)
+			s.log.WithError(err).Error(fmt.Sprintf("Invalid settings for ssl: %s", s.TLS))
 			return
 		}
 	} else {
