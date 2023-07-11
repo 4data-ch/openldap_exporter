@@ -1,5 +1,6 @@
-GITC_OMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
 GIT_TAG := $(shell git describe --tags 2>/dev/null)
+BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 LDFLAGS := -s -w -X github.com/4data-ch/openldap_exporter.commit=${GIT_COMMIT}
 LDFLAGS := ${LDFLAGS} -X github.com/4data-ch/openldap_exporter.tag=${GIT_TAG}
@@ -45,3 +46,8 @@ cross-compile:
 vendor:
 	go mod tidy -compat=1.20
 	go mod vendor
+
+
+.PHONY: build-container
+container:
+	docker build --build-arg GIT_COMMIT=${GIT_COMMIT} --build-arg GIT_TAG=${GIT_TAG} --build-arg BUILD_DATE=${BUILD_DATE} --build-arg VCS_REF=${VCS_REF} Dockerfile 4dataag/openldap-exporter:${GIT_TAG}
