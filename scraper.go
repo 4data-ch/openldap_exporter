@@ -2,6 +2,7 @@ package openldap_exporter
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"strconv"
 	"strings"
@@ -197,14 +198,17 @@ func setReplicationValue(entries []*ldap.Entry, q *query) {
 }
 
 type Scraper struct {
-	Net      string
-	Addr     string
-	User     string
-	Pass     string
-	Tick     time.Duration
-	LdapSync []string
-	log      log.FieldLogger
-	Sync     []string
+	Net                string
+	TLS                string
+	InsecureSkipVerify bool
+	TLSCA              string
+	Addr               string
+	User               string
+	Pass               string
+	Tick               time.Duration
+	LdapSync           []string
+	log                log.FieldLogger
+	Sync               []string
 }
 
 func (s *Scraper) addReplicationQueries() {
@@ -239,24 +243,22 @@ func (s *Scraper) Start(ctx context.Context) {
 }
 
 func (s *Scraper) scrape() {
-	conn, err := ldap.Dial(s.Net, s.Addr)
+
+	conn, err := s.getDialConnection()
 	if err != nil {
-		s.log.WithError(err).Error("dial failed")
+		s.log.WithError(err).Error("Failed to establish connection")
 		dialCounter.WithLabelValues("fail").Inc()
 		return
 	}
-	dialCounter.WithLabelValues("ok").Inc()
 	defer conn.Close()
 
-	if s.User != "" && s.Pass != "" {
-		err = conn.Bind(s.User, s.Pass)
-		if err != nil {
-			s.log.WithError(err).Error("bind failed")
-			bindCounter.WithLabelValues("fail").Inc()
-			return
-		}
-		bindCounter.WithLabelValues("ok").Inc()
+	err = s.bindUser(conn)
+	if err != nil {
+		s.log.WithError(err).Error("Failed to bind user")
+		bindCounter.WithLabelValues("fail").Inc()
+		return
 	}
+	bindCounter.WithLabelValues("ok").Inc()
 
 	scrapeRes := "ok"
 	for _, q := range queries {
@@ -266,6 +268,63 @@ func (s *Scraper) scrape() {
 		}
 	}
 	scrapeCounter.WithLabelValues(scrapeRes).Inc()
+}
+
+func (s *Scraper) getDialConnection() (*ldap.Conn, error) {
+	conn, err := ldap.Dial(s.Net, s.Addr)
+	if err != nil {
+		s.log.WithError(err).Error("Dial failed")
+		dialCounter.WithLabelValues("fail").Inc()
+		return nil, err
+	}
+
+	if s.TLS != "" {
+		tlsConfig, err := s.getTLSConfig()
+		if err != nil {
+			conn.Close()
+			s.log.WithError(err).Error("Creating TLS Config failed")
+			return nil, err
+		}
+
+		switch s.TLS {
+		case "ldaps":
+			err = conn.StartTLS(tlsConfig)
+			if err != nil {
+				conn.Close()
+				s.log.WithError(err).Error("Starttls Dial failed")
+				dialCounter.WithLabelValues("fail").Inc()
+				return nil, err
+			}
+		case "starttls":
+			// Already using StartTLS
+		default:
+			conn.Close()
+			s.log.WithError(fmt.Errorf("Invalid settings for ssl: %s", s.TLS)).Error()
+			return nil, fmt.Errorf("Invalid settings for ssl: %s", s.TLS)
+		}
+	}
+
+	dialCounter.WithLabelValues("ok").Inc()
+	return conn, nil
+}
+
+func (s *Scraper) getTLSConfig() (*tls.Config, error) {
+	clientTLSConfig := ClientConfig{
+		TLSCA:              s.TLSCA,
+		InsecureSkipVerify: s.InsecureSkipVerify,
+	}
+
+	return clientTLSConfig.TLSConfig()
+}
+
+func (s *Scraper) bindUser(conn *ldap.Conn) error {
+	if s.User != "" && s.Pass != "" {
+		err := conn.Bind(s.User, s.Pass)
+		if err != nil {
+			return fmt.Errorf("Failed to bind user: %v", err)
+		}
+	}
+	return nil
 }
 
 func scrapeQuery(conn *ldap.Conn, q *query) error {
