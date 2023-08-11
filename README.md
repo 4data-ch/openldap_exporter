@@ -1,5 +1,3 @@
-⚠️ This repository is now archived. Thank you all for your excellent contributions. May it continue to live in all your wonderful forks.
-
 # OpenLDAP Prometheus Exporter
 
 This is a simple service that scrapes metrics from OpenLDAP and exports them via HTTP for Prometheus consumption.
@@ -128,6 +126,13 @@ NOTES:
 
 * `ldapNet` allows you to configure `tcp` or `unix` socket connections to your co-located OpenLDAP server.
 * `webCfgFile` can be used to provide authentication and TLS configuration for the [prometheus web exporter](https://github.com/prometheus/exporter-toolkit/tree/master/web).
+
+
+## Using container Image
+
+```
+docker pull 4data/openldap-exporter
+```
 
 ## Build
 
