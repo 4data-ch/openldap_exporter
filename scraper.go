@@ -271,40 +271,51 @@ func (s *Scraper) scrape() {
 }
 
 func (s *Scraper) getDialConnection() (*ldap.Conn, error) {
-	conn, err := ldap.Dial(s.Net, s.Addr)
-	if err != nil {
-		s.log.WithError(err).Error("Dial failed")
-		dialCounter.WithLabelValues("fail").Inc()
-		return nil, err
-	}
+
+	var conn *ldap.Conn
 
 	if s.TLS != "" {
 		tlsConfig, err := s.getTLSConfig()
+
 		if err != nil {
-			conn.Close()
 			s.log.WithError(err).Error("Creating TLS Config failed")
 			return nil, err
 		}
 
 		switch s.TLS {
 		case "ldaps":
-			err = conn.StartTLS(tlsConfig)
+			conn, err = ldap.DialTLS(s.Net, s.Addr, tlsConfig)
 			if err != nil {
 				conn.Close()
-				s.log.WithError(err).Error("Starttls Dial failed")
-				dialCounter.WithLabelValues("fail").Inc()
+				s.log.WithError(err).Error("Creating DialTLS connection failed")
 				return nil, err
 			}
 		case "starttls":
-			// Already using StartTLS
+			conn, err = ldap.Dial(s.Net, s.Addr)
+			if err != nil {
+				conn.Close()
+				s.log.WithError(err).Error("Creating Dial connection failed")
+				return nil, err
+			}
+			err = conn.StartTLS(tlsConfig)
+			if err != nil {
+				conn.Close()
+				s.log.WithError(err).Error("Creating StartTLS connection failed")
+				return nil, err
+			}
 		default:
+			s.log.WithError(err).Error("Invalid settings for TLS")
+			return nil, err
+		}
+	} else {
+		conn, err := ldap.Dial(s.Net, s.Addr)
+		if err != nil {
 			conn.Close()
-			s.log.WithError(fmt.Errorf("Invalid settings for ssl: %s", s.TLS)).Error()
-			return nil, fmt.Errorf("Invalid settings for ssl: %s", s.TLS)
+			s.log.WithError(err).Error("Dial failed")
+			return nil, err
 		}
 	}
 
-	dialCounter.WithLabelValues("ok").Inc()
 	return conn, nil
 }
 
