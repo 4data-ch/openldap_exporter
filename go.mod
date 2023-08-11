@@ -30,6 +30,7 @@ require (
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect
